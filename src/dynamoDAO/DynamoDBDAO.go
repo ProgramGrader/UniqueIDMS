@@ -7,10 +7,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"log"
+	"time"
 )
 
 // Get given UUID returns value
-func Get(clientConfig *dynamodb.Client, tableName string, UUID string) (bucket string, region string, filename string) {
+func Get(clientConfig *dynamodb.Client, tableName string, UUID string) (msName string, date string) {
 
 	getItemInput := &dynamodb.GetItemInput{
 		TableName:      aws.String(tableName),
@@ -30,28 +31,25 @@ func Get(clientConfig *dynamodb.Client, tableName string, UUID string) (bucket s
 		log.Fatal("Item not found: ", UUID)
 	}
 
-	err = attributevalue.Unmarshal(output.Item["bucket"], &bucket)
-	err = attributevalue.Unmarshal(output.Item["region"], &region)
-	err = attributevalue.Unmarshal(output.Item["filename"], &filename)
+	err = attributevalue.Unmarshal(output.Item["date"], &date)
 	if err != nil {
 		log.Fatalf("unmarshal failed, %v", err)
 	}
 
-	return bucket, region, filename
+	return msName, date
 
 }
 
 // Put creates/update a new entry in the Dynamodb
-func Put(clientConfig *dynamodb.Client, tableName string, UUID string, bucket string, region string, filename string) {
+func Put(clientConfig *dynamodb.Client, tableName string, msName string, UUID string, date string) {
 
 	var itemInput = dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 
 		Item: map[string]types.AttributeValue{
-			"UUID":     &types.AttributeValueMemberS{Value: UUID},
-			"bucket":   &types.AttributeValueMemberS{Value: bucket},
-			"region":   &types.AttributeValueMemberS{Value: region},
-			"filename": &types.AttributeValueMemberS{Value: filename},
+			"msName":       &types.AttributeValueMemberS{Value: msName},
+			"UUID":         &types.AttributeValueMemberS{Value: UUID},
+			"date-created": &types.AttributeValueMemberS{Value: date},
 		},
 	}
 
@@ -105,4 +103,50 @@ func DeleteAll(clientConfig *dynamodb.Client, tableName string) {
 
 		}
 	}
+}
+
+// DeleteExpiredUUIDs Expired UUIDs have persisted for 30 days or longer
+func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string) {
+
+	loc, _ := time.LoadLocation("UTC")
+
+	earliestAcceptedDate := time.Now().In(loc)
+	latestAcceptedDate := time.Now().In(loc).Add(-720 * time.Hour) // 30 days from current time
+
+	scan := dynamodb.NewScanPaginator(clientConfig, &dynamodb.ScanInput{
+		TableName: aws.String(tableName),
+	})
+
+	for scan.HasMorePages() {
+		out, err := scan.NextPage(context.TODO())
+		if err != nil {
+			print("Page error")
+			panic(err)
+		}
+
+		for _, item := range out.Items {
+			var date string
+			err := attributevalue.Unmarshal(item["date-created"], &date)
+			if err != nil {
+				print("Error UnMarshaling date ", date)
+				return
+			}
+
+			dateTime, err := time.Parse("2006-01-02", date)
+
+			if dateTime.After(latestAcceptedDate) || dateTime.Before(earliestAcceptedDate) || dateTime.Equal(latestAcceptedDate) || dateTime.Equal(earliestAcceptedDate) {
+				_, err = clientConfig.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+					TableName: aws.String(tableName),
+					Key: map[string]types.AttributeValue{
+						"UUID": item["UUID"],
+					},
+				})
+				if err != nil {
+					print("Error Deleting Item")
+					panic(err)
+				}
+			}
+		}
+	}
+
 }
