@@ -32,14 +32,14 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	var statusCode int
 	UUID, _ = dynamoDAO.Get(dynamodbClient, common.TableName, msName)
 	if UUID == "" {
+		UUID = uuid.New().String()
+		dynamoDAO.Put(dynamodbClient, common.TableName, msName, UUID, time.Now().Format("2006-05-10"))
 
-		dynamoDAO.Put(dynamodbClient, common.TableName, msName, uuid.New().String(), time.Now().Format("2006-05-10"))
 		statusCode = 201
 	} else {
 		statusCode = 200
 	}
 
-	//url := "https://iuscsg.org"
 	return events.APIGatewayProxyResponse{
 		//Body:       fmt.Sprintf("{\"message\":\"Error occurred unmarshaling request: %v.\"}", url),
 		StatusCode: statusCode,

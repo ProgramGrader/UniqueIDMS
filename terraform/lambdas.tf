@@ -50,7 +50,7 @@ resource "aws_iam_role" "lambda-role" {
     })
 }
 
-// Allow lambda to Get a Add to dynamodb
+// Allows necessary lambda and dynamodb permissions
 resource "aws_iam_policy" "dynamodb-sqs-policy" {
   policy = jsonencode(
     {
@@ -64,8 +64,9 @@ resource "aws_iam_policy" "dynamodb-sqs-policy" {
         {
           "Action": ["sqs:DeleteMessage",
             "sqs:ReceiveMessage",
+            "sqs:SendMessage",
             "sqs:GetQueueAttributes"]
-          "Resource": aws_sqs_queue.sqs.arn,
+          "Resource": [aws_sqs_queue.sqs.arn,aws_sqs_queue.check_uuid_dlq.arn]
           "Effect": "Allow"
         },
         {
@@ -96,6 +97,11 @@ resource "aws_lambda_function" "check_UUID_lambda" {
   runtime = "go1.x"
   timeout = 5
   memory_size = 128
+
+  dead_letter_config {
+    target_arn = aws_sqs_queue.check_uuid_dlq.arn
+  }
+
   tracing_config {
     mode = "Active"
   }
@@ -115,8 +121,11 @@ resource "aws_lambda_event_source_mapping" "event_source_mapping" {
   function_name = "check-uuid"
   event_source_arn = aws_sqs_queue.sqs.arn
   enabled = true  // allows the immediate sending of events to lambda
-  batch_size = 1 // number of messages sent at a time?
+  batch_size = 5
 }
+
+
+// Lambda 2 config
 
 resource "aws_lambda_function" "scheduled_UUID_deleter_lambda" {
   function_name = "scheduled-uuid-deleter"
@@ -127,6 +136,7 @@ resource "aws_lambda_function" "scheduled_UUID_deleter_lambda" {
   runtime = "go1.x"
   timeout = 5
   memory_size = 128
+
   tracing_config {
     mode = "Active"
   }

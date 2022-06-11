@@ -5,7 +5,10 @@
 
 // TODO - Fix terraform vulnerabilities
 // TODO - Test terraform using terragrunt
+// TODO - Test in production
 
+
+// Local stacks does not support apigw v2 unless you have the pro version
 terraform {
 
   required_providers {
@@ -15,12 +18,6 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket = "tfstate-3ea6z45i"
-    key    = "assignmentZip/key"
-    region = "us-east-2"
-    dynamodb_table = "app-state"
-  }
 }
 
 locals {
