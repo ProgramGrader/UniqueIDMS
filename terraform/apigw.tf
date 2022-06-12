@@ -52,29 +52,9 @@ resource "aws_apigatewayv2_integration" "api" {
   request_parameters = {
     QueueUrl = aws_sqs_queue.sqs.url
     // not sure what exactly to send to sqs
-    // defaulting to querystring
-    MessageBody = "$request.querystring.ms_name"
+    MessageBody = "$request.body"
 
   }
-  // need to add a request template in order to pass method Body and path in sqs
-#  request_templates = {
-#    "application/json" = <<EOF
-#    Action=SendMessage&MessageBody={
-#    "method": "$context.httpMethod",
-#    "body-json" : $input.json('$'),
-#    "queryParams": {
-#      #foreach($param in $input.params().querystring.keySet())
-#      "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
-#    #end
-#  },
-#  "pathParams": {
-#    #foreach($param in $input.params().path.keySet())
-#    "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
-#    #end
-#  }
-#}"
-#EOF
-#  }
 
   depends_on = [aws_iam_role_policy_attachment.api_exec_role]
 }

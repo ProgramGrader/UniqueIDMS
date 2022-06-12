@@ -1,15 +1,15 @@
-package lambdas
+package main
 
 import (
 	"common"
 	"context"
 	"dynamoDAO"
-	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/google/uuid"
+	"log"
 	"time"
 )
 
@@ -17,34 +17,22 @@ import (
 
 // TODO - Test handler function using SAM
 
-func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func Handler(ctx context.Context, sqsEvent events.SQSEvent) {
 
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	dynamodbClient := dynamodb.NewFromConfig(cfg)
 
-	fmt.Printf("event.HTTPMethod %v\n", request.HTTPMethod)
-	fmt.Printf("event.QueryStringParameters %v\n", request.QueryStringParameters)
-	fmt.Printf("event %v\n", request)
+	msName := sqsEvent.Records[0].Body
 
-	msName := request.QueryStringParameters["ms_name"]
-
-	var UUID string
-	var statusCode int
+	var UUID = ""
 	UUID, _ = dynamoDAO.Get(dynamodbClient, common.TableName, msName)
+	log.Println("UUID for ", msName, ":", UUID)
 	if UUID == "" {
 		UUID = uuid.New().String()
-		dynamoDAO.Put(dynamodbClient, common.TableName, msName, UUID, time.Now().Format("2006-05-10"))
-
-		statusCode = 201
-	} else {
-		statusCode = 200
+		dynamoDAO.Put(dynamodbClient, common.TableName, msName, UUID, time.Now().UTC().Format("2006-01-02"))
+		log.Println("New Uuid was successfully created for ", msName)
 	}
 
-	return events.APIGatewayProxyResponse{
-		//Body:       fmt.Sprintf("{\"message\":\"Error occurred unmarshaling request: %v.\"}", url),
-		StatusCode: statusCode,
-		Body:       UUID,
-	}, nil
 }
 
 func main() {

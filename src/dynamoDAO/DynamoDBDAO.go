@@ -30,7 +30,7 @@ func Get(clientConfig *dynamodb.Client, tableName string, msName string) (UUID s
 	}
 
 	if output.Item == nil {
-		log.Fatal("Item not found: ", UUID)
+		log.Println("Item not found: ")
 	}
 
 	err = attributevalue.Unmarshal(output.Item["UUID"], &UUID)

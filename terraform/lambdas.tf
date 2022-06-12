@@ -58,8 +58,9 @@ resource "aws_iam_policy" "dynamodb-sqs-policy" {
       "Statement": [{
         "Sid": "ReadWriteTable",
         "Effect": "Allow",
-        "Action": ["dynamodb:GetItem", "dynamodb:PutItem"],
-        "Resource": "arn:aws:dynamodb:${var.primary_aws_region}:${aws_dynamodb_table.MSUniqueID.arn}:table/${aws_dynamodb_table.MSUniqueID.name}"
+        "Action": ["dynamodb:GetItem",
+          "dynamodb:PutItem"],
+        "Resource": "arn:aws:dynamodb:${var.primary_aws_region}:${aws_dynamodb_table.MSUniqueID.arn}"
       },
         {
           "Action": ["sqs:DeleteMessage",
@@ -83,16 +84,50 @@ resource "aws_iam_policy" "dynamodb-sqs-policy" {
 }
 
 
-resource "aws_iam_role_policy_attachment" "attach_dynamodb_policy" {
+resource "aws_iam_role_policy_attachment" "attach_dynamodb_sqs_policy" {
   role       = aws_iam_role.lambda-role.name
   policy_arn = aws_iam_policy.dynamodb-sqs-policy.arn
+}
+
+// Gives readOnly permission for dynamo
+resource "aws_iam_policy" "readwrite-policy" {
+  policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:Describe*",
+        "dynamodb:List*",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:PartiQLSelect"
+
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    },
+      {
+        "Action": "cloudwatch:GetInsightRuleReport",
+        "Effect": "Allow",
+        "Resource": "arn:aws:cloudwatch:*:*:insight-rule/DynamoDBContributorInsights*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_dynamodb_rw_policy" {
+  role       = aws_iam_role.lambda-role.name
+  policy_arn = aws_iam_policy.readwrite-policy.arn
+
 }
 
 resource "aws_lambda_function" "check_UUID_lambda" {
   function_name = "check-uuid"
   filename = data.archive_file.check_UUID_lambda_zip.output_path
   source_code_hash = data.archive_file.check_UUID_lambda_zip.output_base64sha256
-  handler = "main"
+  handler = "check_UUID"
   role          = aws_iam_role.lambda-role.arn
   runtime = "go1.x"
   timeout = 5
@@ -125,13 +160,13 @@ resource "aws_lambda_event_source_mapping" "event_source_mapping" {
 }
 
 
-// Lambda 2 config
+// scheduled uuid deleter Lambda config
 
 resource "aws_lambda_function" "scheduled_UUID_deleter_lambda" {
   function_name = "scheduled-uuid-deleter"
   filename = data.archive_file.schedule_UUID_deleter_lambda_zip.output_path
   source_code_hash = data.archive_file.schedule_UUID_deleter_lambda_zip.output_base64sha256
-  handler = "main"
+  handler = "scheduled_UUID_deleter"
   role          = aws_iam_role.lambda-role.arn
   runtime = "go1.x"
   timeout = 5
