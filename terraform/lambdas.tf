@@ -63,13 +63,13 @@ resource "aws_iam_policy" "dynamodb-sqs-policy" {
         "Resource": "arn:aws:dynamodb:${var.primary_aws_region}:${aws_dynamodb_table.MSUniqueID.arn}"
       },
         {
-          "Action": ["sqs:DeleteMessage",
-            "sqs:ReceiveMessage",
-            "sqs:SendMessage",
-            "sqs:GetQueueAttributes"]
-          "Resource": [aws_sqs_queue.sqs.arn,aws_sqs_queue.check_uuid_dlq.arn]
-          "Effect": "Allow"
-        },
+        "Action": ["sqs:DeleteMessage",
+          "sqs:ReceiveMessage",
+          "sqs:SendMessage",
+          "sqs:GetQueueAttributes"]
+        "Resource": [aws_sqs_queue.check_uuid_dlq.arn]
+        "Effect": "Allow"
+      },
         {
           "Action": [
             "logs:CreateLogGroup",
@@ -140,23 +140,14 @@ resource "aws_lambda_function" "check_UUID_lambda" {
   tracing_config {
     mode = "Active"
   }
+
 }
 // adding permission to allow sqs to invoke the lambda
-resource "aws_lambda_permission" "allow_sqs_to_trigger_lambda" {
-  statement_id  = "AllowExecutionFromSQS"
+resource "aws_lambda_permission" "allow_apigw_to_trigger_lambda" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.check_UUID_lambda.function_name
-  principal     = "sqs.amazonaws.com"
-  source_arn    = aws_sqs_queue.sqs.arn
-}
-
-
-// this is what connects the lambda event source to sqs
-resource "aws_lambda_event_source_mapping" "event_source_mapping" {
-  function_name = "check-uuid"
-  event_source_arn = aws_sqs_queue.sqs.arn
-  enabled = true  // allows the immediate sending of events to lambda
-  batch_size = 5
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.unique_id_gw.execution_arn}/*/*"
 }
 
 
@@ -171,6 +162,7 @@ resource "aws_lambda_function" "scheduled_UUID_deleter_lambda" {
   runtime = "go1.x"
   timeout = 5
   memory_size = 128
+
 
   tracing_config {
     mode = "Active"

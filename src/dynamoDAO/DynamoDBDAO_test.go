@@ -37,7 +37,7 @@ func TestPutAndGet(t *testing.T) {
 
 		Put(clientConfig, common.TableName, test.msName, test.UUID, test.date)
 
-		storedUUID, storedDate := Get(clientConfig, common.TableName, test.msName)
+		storedUUID, storedDate, _ := Get(clientConfig, common.TableName, test.msName)
 		if storedUUID != test.UUID {
 			t.Fatalf("TestGet(), Failed. Expected value was not found. Got %s expected %s", storedUUID, test.expectedUUID)
 		} else if storedDate != test.expectedDate {
@@ -67,5 +67,17 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDeleteExpiredUUIDs(t *testing.T) {
-	DeleteExpiredUUIDs(clientConfig, common.TableName)
+
+	_, _, msList := Get(clientConfig, common.TableName, "list")
+
+	//if len(list) == 0 {
+	//	log.Print(list)
+	//} else {
+	//	log.Print("\n", list)
+	//	t.Fatal("error")
+	//}
+	for _, msName := range msList {
+		DeleteExpiredUUIDs(clientConfig, common.TableName, msName)
+	}
+
 }

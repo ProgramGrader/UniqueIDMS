@@ -6,3 +6,7 @@ output "api_url"{ // url of the api gateway
 output "dynamo_resource" {
   value = "arn:aws:dynamodb:${var.primary_aws_region}:${aws_dynamodb_table.MSUniqueID.arn}"
 }
+
+output "check_UUID_dlq" {
+  value = aws_sqs_queue.check_uuid_dlq.url
+}

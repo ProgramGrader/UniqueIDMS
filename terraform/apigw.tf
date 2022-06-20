@@ -1,9 +1,11 @@
 resource "aws_apigatewayv2_api" "unique_id_gw" {
-  name          = "unique_id_gwa"
+  name          = "unique_id_gw"
   protocol_type = "HTTP"
 }
 
-// Defining permissions so that API gateway has permissions to SendMessage to SQS queue
+// TODO cut out sqs
+
+// Defining permissions so that API gateway has permissions
 
 resource "aws_iam_role" "apigw-role" {
   assume_role_policy = <<EOF
@@ -25,14 +27,10 @@ EOF
 
 data "template_file" "gateway_policy" {
   template = file("policies/api-gateway-permission.json")
-
-  vars = {
-    sqs_arn = aws_sqs_queue.sqs.arn
-  }
 }
 
 resource "aws_iam_policy" "api-policy" {
-  name   = "api-sqs-cloudwatch-policy"
+  //name   = "api-sqs-cloudwatch-policy"
   policy = data.template_file.gateway_policy.rendered
 }
 
@@ -45,23 +43,16 @@ resource "aws_iam_role_policy_attachment" "api_exec_role" {
 resource "aws_apigatewayv2_integration" "api" {
   api_id             = aws_apigatewayv2_api.unique_id_gw.id
   integration_type   = "AWS_PROXY"
-  credentials_arn    = aws_iam_role.apigw-role.arn
-  integration_subtype = "SQS-SendMessage"
-  description = "Send SQS request"
-
-  request_parameters = {
-    QueueUrl = aws_sqs_queue.sqs.url
-    // not sure what exactly to send to sqs
-    MessageBody = "$request.body"
-
-  }
-
+  integration_uri = aws_lambda_function.check_UUID_lambda.invoke_arn
+  integration_method = "POST"
   depends_on = [aws_iam_role_policy_attachment.api_exec_role]
 }
 
+
+
 resource "aws_apigatewayv2_route" "uniqueUUIDMS" {
   api_id    = aws_apigatewayv2_api.unique_id_gw.id
-  route_key = "POST /{proxy+}"
+  route_key = "GET /{proxy+}"
   target = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 

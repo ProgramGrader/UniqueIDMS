@@ -17,9 +17,11 @@ func Handler() {
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	dynamodbClient := dynamodb.NewFromConfig(cfg)
 
+	_, _, msList := dynamoDAO.Get(dynamodbClient, common.TableName, "list")
 	// return error if something happens and print value
-	dynamoDAO.DeleteExpiredUUIDs(dynamodbClient, common.TableName)
-
+	for _, msName := range msList {
+		dynamoDAO.DeleteExpiredUUIDs(dynamodbClient, common.TableName, msName)
+	}
 }
 
 func main() {
