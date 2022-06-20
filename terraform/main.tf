@@ -4,9 +4,6 @@
 // if the tflocal or awslocal commands aren't recognized try restarting your terminal
 
 // TODO - Fix terraform vulnerabilities
-// TODO - Test terraform using terragrunt
-// TODO - Test in production
-
 
 // Local stacks does not support apigw v2 unless you have the pro version
 terraform {

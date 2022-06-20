@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// TODO - Test handler function using SAM
+//TODO - Test handler function using SAM
 
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 

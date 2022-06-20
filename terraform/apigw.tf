@@ -3,8 +3,6 @@ resource "aws_apigatewayv2_api" "unique_id_gw" {
   protocol_type = "HTTP"
 }
 
-// TODO cut out sqs
-
 // Defining permissions so that API gateway has permissions
 
 resource "aws_iam_role" "apigw-role" {

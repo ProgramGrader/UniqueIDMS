@@ -66,18 +66,16 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+// get delete working and your done
 func TestDeleteExpiredUUIDs(t *testing.T) {
 
 	_, _, msList := Get(clientConfig, common.TableName, "list")
 
-	//if len(list) == 0 {
-	//	log.Print(list)
-	//} else {
-	//	log.Print("\n", list)
-	//	t.Fatal("error")
-	//}
 	for _, msName := range msList {
-		DeleteExpiredUUIDs(clientConfig, common.TableName, msName)
+		deleteErr := DeleteExpiredUUIDs(clientConfig, common.TableName, msName)
+		if deleteErr != nil {
+			t.Fatal("TestDeleteExpiredUUIDs(), Failed to delete. Expected error to be nil.")
+		}
 	}
 
 }

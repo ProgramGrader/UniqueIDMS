@@ -142,6 +142,7 @@ resource "aws_lambda_function" "check_UUID_lambda" {
   }
 
 }
+
 // adding permission to allow sqs to invoke the lambda
 resource "aws_lambda_permission" "allow_apigw_to_trigger_lambda" {
   action        = "lambda:InvokeFunction"
@@ -150,9 +151,7 @@ resource "aws_lambda_permission" "allow_apigw_to_trigger_lambda" {
   source_arn    = "${aws_apigatewayv2_api.unique_id_gw.execution_arn}/*/*"
 }
 
-
 // scheduled uuid deleter Lambda config
-
 resource "aws_lambda_function" "scheduled_UUID_deleter_lambda" {
   function_name = "scheduled-uuid-deleter"
   filename = data.archive_file.schedule_UUID_deleter_lambda_zip.output_path
@@ -162,7 +161,6 @@ resource "aws_lambda_function" "scheduled_UUID_deleter_lambda" {
   runtime = "go1.x"
   timeout = 5
   memory_size = 128
-
 
   tracing_config {
     mode = "Active"
@@ -179,7 +177,6 @@ resource "aws_cloudwatch_event_target" "scheduled_UUID_deleter" {
   arn  = aws_lambda_function.scheduled_UUID_deleter_lambda.arn
   rule = aws_cloudwatch_event_rule.every_day.name
   target_id = "scheduled_UUID_deleter"
-
 }
 
 resource "aws_lambda_permission" "allow_cloudwatch_to_call_SUUID_deleter" {

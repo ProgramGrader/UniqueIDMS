@@ -3,7 +3,6 @@ package dynamoDAO
 import (
 	"common"
 	"context"
-	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -116,23 +115,29 @@ func DeleteAll(clientConfig *dynamodb.Client, tableName string) {
 }
 
 // DeleteExpiredUUIDs Expired UUIDs have persisted for 30 days or longer
-func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName string) {
+func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName string) error {
 
 	loc, _ := time.LoadLocation("UTC")
+	sixMonthsAgo := time.Now().In(loc).Add(-4320 * time.Hour).Format("2006-01-02")
+	monthAgo := time.Now().In(loc).Add(-720 * time.Hour).Format("2006-01-02")
 
-	earliestAcceptedDate := time.Now().In(loc)
-	latestAcceptedDate := time.Now().In(loc).Add(-720 * time.Hour) // 30 days from current time
+	filter := "#date BETWEEN :ldate AND :edate"
+	out, err := clientConfig.Query(context.TODO(),
+		&dynamodb.QueryInput{
+			TableName:              aws.String(common.TableName),
+			KeyConditionExpression: aws.String("#msName = :msName"),
+			ExpressionAttributeNames: map[string]string{
+				"#msName": "ms-name",
+				"#date":   "date", // dynamodb does not like dashes
+			},
 
-	out, err := clientConfig.Query(context.TODO(), &dynamodb.QueryInput{
-		TableName:              aws.String(common.TableName),
-		IndexName:              aws.String("ms-name"),
-		KeyConditionExpression: aws.String("ms-name = :msName AND :edate BETWEEN :ldate"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":msName": &types.AttributeValueMemberS{Value: msName},
-			":ldate":  &types.AttributeValueMemberS{Value: latestAcceptedDate.String()},
-			":edate":  &types.AttributeValueMemberS{Value: earliestAcceptedDate.String()},
-		},
-	})
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":msName": &types.AttributeValueMemberS{Value: msName},
+				":ldate":  &types.AttributeValueMemberS{Value: sixMonthsAgo},
+				":edate":  &types.AttributeValueMemberS{Value: monthAgo},
+			},
+			FilterExpression: &filter,
+		})
 	if err != nil {
 		print("Error querying expired dates")
 		log.Fatal(err)
@@ -151,7 +156,5 @@ func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName 
 		}
 
 	}
-
-	fmt.Println(out.Items)
-
+	return err
 }

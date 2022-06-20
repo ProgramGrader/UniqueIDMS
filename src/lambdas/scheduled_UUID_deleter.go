@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"log"
 )
 
 // Finds any UUID that is more than 30 days old then deletes it
@@ -20,7 +21,10 @@ func Handler() {
 	_, _, msList := dynamoDAO.Get(dynamodbClient, common.TableName, "list")
 	// return error if something happens and print value
 	for _, msName := range msList {
-		dynamoDAO.DeleteExpiredUUIDs(dynamodbClient, common.TableName, msName)
+		err := dynamoDAO.DeleteExpiredUUIDs(dynamodbClient, common.TableName, msName)
+		if err != nil {
+			log.Println("Error Deleting Expired UUIDs")
+		}
 	}
 }
 
