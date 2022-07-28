@@ -30,7 +30,7 @@
         "sqs:ChangeMessageVisibilityBatch",
         "sqs:SetQueueAttributes"
       ],
-      "Resource": "${sqs_arn}"
+      "Resource": "*"
     },
     {
       "Effect": "Allow",

@@ -15,55 +15,67 @@ var cfg, _ = config.LoadDefaultConfig(context.TODO())
 var clientConfig = dynamodb.NewFromConfig(cfg)
 
 type Item struct {
-	UUID     string
-	bucket   string
-	region   string
-	filename string
+	msName string
+	UUID   string
+	date   string
 
-	expectedBucket   string
-	expectedRegion   string
-	expectedFilename string
+	expectedUUID string
+	expectedDate string
 }
 
+// yyyy-mm-dd
 func TestPutAndGet(t *testing.T) {
 
 	putAnGetItems := []Item{
-		{"uuid1", "a-bucket", "us-east-2", "file.txt", "a-bucket", "us-east-2", "file.txt"},
-		{"uuid2", "the-bucket", "us-east-1", "file.txt", "the-bucket", "us-east-1", "file.txt"},
-		{"uuid2", "the-bucket", "us-west-1", "file.txt", "the-bucket", "us-west-1", "file.txt"},
+		{"Microservice1", "cda6498a-235d-4f7e-ae19-661d41bc154c", "2022-01-22", "cda6498a-235d-4f7e-ae19-661d41bc154c", "2022-01-22"},
+		{"Microservice2", "c8472cb6-da1c-48f5-8b61-72355fb647fa", "2022-03-22", "c8472cb6-da1c-48f5-8b61-72355fb647fa", "2022-03-22"},
+		{"Microservice3", "332b1983-2ddd-4da9-aaf2-f2cf2b3e2009", "2022-05-22", "332b1983-2ddd-4da9-aaf2-f2cf2b3e2009", "2022-05-22"},
+		{"Microservice4", "332b1983-2ddd-4da9-aaf2-f2cf2b3e2009", "2021-03-21", "332b1983-2ddd-4da9-aaf2-f2cf2b3e2009", "2021-03-21"},
 	}
 
 	for _, test := range putAnGetItems {
 
-		Put(clientConfig, common.TableName, test.UUID, test.bucket, test.region, test.filename)
+		Put(clientConfig, common.TableName, test.msName, test.UUID, test.date)
 
-		storedBucket, storedRegion, storedFilename := Get(clientConfig, common.TableName, test.UUID)
-		if storedBucket != test.expectedBucket {
-			t.Fatalf("TestPut(), Failed. Expected value was not found. Got %s expected %s", storedBucket, test.expectedBucket)
-		} else if storedRegion != test.expectedRegion {
-			t.Fatalf("TestPut(), Failed. Expected value was not found. Got %s expected %s", storedRegion, test.expectedRegion)
-		} else if storedFilename != test.expectedFilename {
-			t.Fatalf("TestPut(), Failed. Expected value was not found. Got %s expected %s", storedFilename, test.expectedFilename)
+		storedUUID, storedDate, _ := Get(clientConfig, common.TableName, test.msName)
+		if storedUUID != test.UUID {
+			t.Fatalf("TestGet(), Failed. Expected value was not found. Got %s expected %s", storedUUID, test.expectedUUID)
+		} else if storedDate != test.expectedDate {
+			t.Fatalf("TestGet(), Failed. Expected value was not found. Got %s expected %s", storedDate, test.expectedDate)
 		}
 	}
 
-	DeleteAll(clientConfig, common.TableName)
+	//DeleteAll(localClientConfig, common.TableName)
 }
 
 func TestDelete(t *testing.T) {
 
 	deleteItems := []Item{
-		{"uuid1", "a_bucket", "us-east-1", "file.txt", "", "", ""},
-		{"uuid2", "update_url", "us-east-1", "file.txt", "", "", ""},
-		{"uuid2", "update_url", "us-east-2", "file.txt", "", "", ""},
+		{"Microservice1", "cda6498a-235d-4f7e-ae19-661d41bc154c", "2022-01-20", "", ""},
+		{"Microservice2", "c8472cb6-da1c-48f5-8b61-72355fb647fa", "2022-03-20", "", ""},
+		{"Microservice3", "332b1983-2ddd-4da9-aaf2-f2cf2b3e2009", "2022-05-20", "", ""},
 	}
 
 	for _, test := range deleteItems {
-		Put(clientConfig, common.TableName, test.UUID, test.bucket, test.region, test.filename)
+		Put(clientConfig, common.TableName, test.msName, test.UUID, test.date)
 
 		deleteErr := Delete(clientConfig, common.TableName, test.UUID)
 		if deleteErr != nil {
 			t.Fatal("TestDelete(), Failed to delete. Expected error to be nil.")
 		}
 	}
+}
+
+// get delete working and your done
+func TestDeleteExpiredUUIDs(t *testing.T) {
+
+	_, _, msList := Get(clientConfig, common.TableName, "list")
+
+	for _, msName := range msList {
+		deleteErr := DeleteExpiredUUIDs(clientConfig, common.TableName, msName)
+		if deleteErr != nil {
+			t.Fatal("TestDeleteExpiredUUIDs(), Failed to delete. Expected error to be nil.")
+		}
+	}
+
 }
