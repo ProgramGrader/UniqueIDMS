@@ -3,8 +3,6 @@ resource "aws_apigatewayv2_api" "unique_id_gw" {
   protocol_type = "HTTP"
 }
 
-// Defining permissions so that API gateway has permissions
-
 resource "aws_iam_role" "apigw-role" {
   assume_role_policy = <<EOF
 {
@@ -28,7 +26,6 @@ data "template_file" "gateway_policy" {
 }
 
 resource "aws_iam_policy" "api-policy" {
-  //name   = "api-sqs-cloudwatch-policy"
   policy = data.template_file.gateway_policy.rendered
 }
 
@@ -40,17 +37,16 @@ resource "aws_iam_role_policy_attachment" "api_exec_role" {
 // creating api gateway
 resource "aws_apigatewayv2_integration" "api" {
   api_id             = aws_apigatewayv2_api.unique_id_gw.id
+
   integration_type   = "AWS_PROXY"
   integration_uri = aws_lambda_function.check_UUID_lambda.invoke_arn
   integration_method = "POST"
   depends_on = [aws_iam_role_policy_attachment.api_exec_role]
 }
 
-
-
 resource "aws_apigatewayv2_route" "uniqueUUIDMS" {
   api_id    = aws_apigatewayv2_api.unique_id_gw.id
-  route_key = "GET /{proxy+}"
+  route_key = "ANY /{proxy+}"
   target = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 
@@ -73,23 +69,23 @@ resource "aws_apigatewayv2_stage" "api-gw_stage" {
   api_id = aws_apigatewayv2_api.unique_id_gw.id
   name   = var.environment
   auto_deploy = true
-  //PascalCase
 
-  access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api-gw.arn
 
-    format = jsonencode({
-      requestId               = "$context.requestId"
-      sourceIp                = "$context.identity.sourceIp"
-      requestTime             = "$context.requestTime"
-      protocol                = "$context.protocol"
-      httpMethod              = "$context.httpMethod"
-      resourcePath            = "$context.resourcePath"
-      routeKey                = "$context.routeKey"
-      status                  = "$context.status"
-      responseLength          = "$context.responseLength"
-      integrationErrorMessage = "$context.integrationErrorMessage"
-    }
-    )
-  }
+#  access_log_settings {
+#    destination_arn = aws_cloudwatch_log_group.api-gw.arn
+#
+#    format = jsonencode({
+#      requestId               = "$context.requestId"
+#      sourceIp                = "$context.identity.sourceIp"
+#      requestTime             = "$context.requestTime"
+#      protocol                = "$context.protocol"
+#      httpMethod              = "$context.httpMethod"
+#      resourcePath            = "$context.resourcePath"
+#      routeKey                = "$context.routeKey"
+#      status                  = "$context.status"
+#      responseLength          = "$context.responseLength"
+#      integrationErrorMessage = "$context.integrationErrorMessage"
+#    }
+    #)
+ # }
 }

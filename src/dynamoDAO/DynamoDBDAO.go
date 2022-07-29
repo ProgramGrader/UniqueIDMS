@@ -12,48 +12,49 @@ import (
 )
 
 // Get given UUID returns value uses getItem, poses problems if we want the range key for MsName to UUID
-// should be a bool
 
-func Get(clientConfig *dynamodb.Client, tableName string, msName string) (UUID string, date string, list []string) {
+func Get(clientConfig *dynamodb.Client, msName string) (UUID string, date string, list []string, err error) {
+	queryInput := &dynamodb.QueryInput{
+		TableName:              aws.String(common.TableName),
+		KeyConditionExpression: aws.String("#msName = :msName"),
+		ExpressionAttributeNames: map[string]string{
+			"#msName": "ms-name",
+		},
 
-	getItemInput := &dynamodb.GetItemInput{
-		TableName:      aws.String(tableName),
-		ConsistentRead: aws.Bool(true),
-
-		Key: map[string]types.AttributeValue{
-			"ms-name": &types.AttributeValueMemberS{Value: msName},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":msName": &types.AttributeValueMemberS{Value: msName},
 		},
 	}
 
-	output, err := clientConfig.GetItem(context.TODO(), getItemInput)
+	query, err := clientConfig.Query(context.TODO(), queryInput)
 	if err != nil {
-		log.Fatalf("Failed to get item, %v", err)
+		log.Fatal("Get() Failed to query values:", err)
+		return "", "", nil, err
 	}
 
-	if output.Item == nil {
-		log.Println("Item not found: ")
+	if len(query.Items) == 0 {
+		log.Println("UUID for", msName, "not found")
+		return "", "", nil, err
 	}
 
-	err = attributevalue.Unmarshal(output.Item["UUID"], &UUID)
-	err = attributevalue.Unmarshal(output.Item["date"], &date)
+	queryValues := query.Items[0]
 
-	err = attributevalue.Unmarshal(output.Item["list"], &list)
+	err = attributevalue.Unmarshal(queryValues["UUID"], &UUID)
+	err = attributevalue.Unmarshal(queryValues["date"], &date)
+	err = attributevalue.Unmarshal(queryValues["list"], &list)
 	if err != nil {
-		log.Fatalf("unmarshal failed, %v", err)
+		log.Println("Error unmarshalling data from query ")
 	}
 
-	return UUID, date, list
+	return UUID, date, list, err
 
 }
 
-// Could make another get method that uses Query instead of getItem, allowing us to have a range key and not need to
-// specify it
-
 // Put creates/update a new entry in the Dynamodb
-func Put(clientConfig *dynamodb.Client, tableName string, msName string, UUID string, date string) {
+func Put(clientConfig *dynamodb.Client, msName string, UUID string, date string) error {
 
 	var itemInput = dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
+		TableName: aws.String(common.TableName),
 
 		Item: map[string]types.AttributeValue{
 			"ms-name": &types.AttributeValueMemberS{Value: msName},
@@ -66,61 +67,19 @@ func Put(clientConfig *dynamodb.Client, tableName string, msName string, UUID st
 	if err != nil {
 		log.Fatal("Error inserting value ", err)
 	}
-}
-
-// Delete removes a item from the table given the key
-func Delete(clientConfig *dynamodb.Client, tableName string, msName string) error {
-
-	deleteInput := dynamodb.DeleteItemInput{
-		TableName: aws.String(tableName),
-		Key: map[string]types.AttributeValue{
-			"ms-name": &types.AttributeValueMemberS{Value: msName},
-		},
-	}
-
-	_, err := clientConfig.DeleteItem(context.TODO(), &deleteInput)
-	if err != nil {
-		panic(err)
-	}
-
 	return err
 }
 
-func DeleteAll(clientConfig *dynamodb.Client, tableName string) {
-	scan := dynamodb.NewScanPaginator(clientConfig, &dynamodb.ScanInput{
-		TableName: aws.String(tableName),
-	})
-
-	for scan.HasMorePages() {
-		out, err := scan.NextPage(context.TODO())
-		if err != nil {
-			print("Page error")
-			panic(err)
-		}
-
-		for _, item := range out.Items {
-			_, err = clientConfig.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-				TableName: aws.String(tableName),
-				Key: map[string]types.AttributeValue{
-					"ms-name": item["ms-name"],
-				},
-			})
-			if err != nil {
-				print("Error Deleting Item")
-				panic(err)
-			}
-
-		}
-	}
-}
-
-// DeleteExpiredUUIDs Expired UUIDs have persisted for 30 days or longer
+// DeleteExpiredUUIDs
+// queries all UUIDs and creation dates for a given ms and deletes items that were created between the
+// ranges 30 & 180 days before current date
 func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName string) error {
 
 	loc, _ := time.LoadLocation("UTC")
-	sixMonthsAgo := time.Now().In(loc).Add(-4320 * time.Hour).Format("2006-01-02")
+	sixMonthsAgo := time.Now().In(loc).Add(-4320 * time.Hour).Format("2006-01-02") // 30days * 12months = 180 * 24 = 4320
 	monthAgo := time.Now().In(loc).Add(-720 * time.Hour).Format("2006-01-02")
 
+	// in english: filter dates existing in dynamodb between 6 months ago and a month ago from current time
 	filter := "#date BETWEEN :ldate AND :edate"
 	out, err := clientConfig.Query(context.TODO(),
 		&dynamodb.QueryInput{
@@ -148,6 +107,7 @@ func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName 
 			TableName: aws.String(tableName),
 			Key: map[string]types.AttributeValue{
 				"ms-name": item["ms-name"],
+				"UUID":    item["UUID"],
 			},
 		})
 		if err != nil {

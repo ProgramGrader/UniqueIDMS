@@ -1,7 +1,6 @@
 package main
 
 import (
-	"common"
 	"context"
 	"dynamoDAO"
 	"fmt"
@@ -29,27 +28,39 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	UUID := ""
 	statusCode := 200
 
-	if request.HTTPMethod == "GET" {
-		// url/env/v../Microservicename?UUID=UUID
-		UUID, _, _ = dynamoDAO.Get(dynamodbClient, common.TableName, msName)
-		log.Println("UUID for ", msName, ":", UUID)
+	// url/env/v../Microservicename?UUID=UUID
+	UUID, _, _, err := dynamoDAO.Get(dynamodbClient, msName)
 
+	// Microservice provides UUID to insert into dynamodb
+	if request.HTTPMethod == "PUT" {
+		passedUUID := request.QueryStringParameters["UUID"]
+		UUID, _, _, err = dynamoDAO.Get(dynamodbClient, msName)
+		if UUID != "" {
+			statusCode = 409
+		} else {
+			err = dynamoDAO.Put(dynamodbClient, msName, passedUUID, time.Now().UTC().Format("2006-01-02"))
+			UUID = passedUUID
+			statusCode = 201
+		}
 	}
 
-	if UUID == "" {
+	if request.HTTPMethod == "GET" && UUID == "" {
 		UUID = uuid.New().String()
 		// url/env/v../ms_name
-
-		dynamoDAO.Put(dynamodbClient, common.TableName, msName, UUID, time.Now().UTC().Format("2006-01-02"))
+		err = dynamoDAO.Put(dynamodbClient, msName, UUID, time.Now().UTC().Format("2006-01-02"))
 		log.Println("New Uuid was successfully created for ", msName)
-		UUID, _, _ = dynamoDAO.Get(dynamodbClient, common.TableName, msName)
+		UUID, _, _, err = dynamoDAO.Get(dynamodbClient, msName)
 		statusCode = 201
 	}
+
+	// created in terraform (aws_cloudwatch_log_metric_filter) filters the 409 statuscode
+	// which then triggers an alarm notifying of a collision
+	log.Println("statusCode=", statusCode)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: statusCode,
 		Body:       fmt.Sprintf("UUID=%v", UUID),
-	}, nil
+	}, err
 
 }
 

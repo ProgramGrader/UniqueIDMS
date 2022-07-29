@@ -6,16 +6,7 @@
 // TODO - Fix terraform vulnerabilities
 
 // Local stacks does not support apigw v2 unless you have the pro version
-terraform {
 
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.15"
-    }
-  }
-
-}
 
 locals {
   shared_tags = {
