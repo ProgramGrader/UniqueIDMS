@@ -12,7 +12,7 @@ import (
 // common constants and Configurations used to test local and deployed dynamodb & aws resources
 
 const (
-	TableName = "MSUniqueID"
+	TableName = "UniqueIDMS"
 	AwsRegion = "us-east-2"
 )
 

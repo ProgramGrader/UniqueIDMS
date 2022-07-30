@@ -7,7 +7,7 @@
 
 // Local stacks does not support apigw v2 unless you have the pro version
 
-
+// TODO - add sms and email alert to uuid collision alarm
 locals {
   shared_tags = {
     Terraform = "true"

@@ -4,7 +4,7 @@ output "api_url"{ // url of the api gateway
 }
 
 output "dynamo_resource" {
-  value = "arn:aws:dynamodb:${var.primary_aws_region}:${aws_dynamodb_table.MSUniqueID.arn}"
+  value = "arn:aws:dynamodb:${var.primary_aws_region}:${aws_dynamodb_table.UniqueIDMS.arn}"
 }
 
 output "check_UUID_dlq" {

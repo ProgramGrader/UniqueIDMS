@@ -1,6 +1,6 @@
-resource "aws_dynamodb_table" "MSUniqueID" {
+resource "aws_dynamodb_table" "UniqueIDMS" {
 
-  name     = "MSUniqueID"
+  name     = "UniqueIDMS"
   billing_mode = "PAY_PER_REQUEST"
 
   attribute {
@@ -20,9 +20,9 @@ resource "aws_dynamodb_table" "MSUniqueID" {
 
 
 resource "aws_dynamodb_table_item" "ms_list" {
-  hash_key   = aws_dynamodb_table.MSUniqueID.hash_key
-  range_key = aws_dynamodb_table.MSUniqueID.range_key
-  table_name = aws_dynamodb_table.MSUniqueID.name
+  hash_key   = aws_dynamodb_table.UniqueIDMS.hash_key
+  range_key = aws_dynamodb_table.UniqueIDMS.range_key
+  table_name = aws_dynamodb_table.UniqueIDMS.name
   item = <<ITEM
     {
       "ms-name": {"S": "list"},
