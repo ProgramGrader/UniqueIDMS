@@ -35,7 +35,7 @@ resource "aws_iam_role_policy_attachment" "api_exec_role" {
 }
 
 resource "aws_apigatewayv2_deployment" "api" {
-  depends_on = [module.check_UUID]
+  depends_on = [module.check_ULID]
   api_id        = aws_apigatewayv2_api.unique_id_gw.id
   lifecycle {
     create_before_destroy = true

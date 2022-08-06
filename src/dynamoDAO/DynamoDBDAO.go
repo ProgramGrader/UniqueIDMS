@@ -1,19 +1,19 @@
 package dynamoDAO
 
 import (
-	"common"
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"log"
+	"src/common"
 	"time"
 )
 
-// Get given UUID returns value uses getItem, poses problems if we want the range key for MsName to UUID
+// Get given ULID returns value uses getItem, poses problems if we want the range key for MsName to ULID
 
-func Get(clientConfig *dynamodb.Client, msName string) (UUID string, date string, list []string, err error) {
+func Get(clientConfig *dynamodb.Client, msName string) (ULID string, expirationDate string, list []string, err error) {
 	queryInput := &dynamodb.QueryInput{
 		TableName:              aws.String(common.TableName),
 		KeyConditionExpression: aws.String("#msName = :msName"),
@@ -29,37 +29,37 @@ func Get(clientConfig *dynamodb.Client, msName string) (UUID string, date string
 	query, err := clientConfig.Query(context.TODO(), queryInput)
 	if err != nil {
 		log.Fatal("Get() Failed to query values:", err)
-		return "", "", nil, err
+
 	}
 
 	if len(query.Items) == 0 {
-		log.Println("UUID for", msName, "not found")
-		return "", "", nil, err
+		log.Println("ULID for ", msName, " not found")
+		return ULID, expirationDate, list, err
 	}
 
 	queryValues := query.Items[0]
 
-	err = attributevalue.Unmarshal(queryValues["UUID"], &UUID)
-	err = attributevalue.Unmarshal(queryValues["date"], &date)
+	err = attributevalue.Unmarshal(queryValues["ULID"], &ULID)
+	err = attributevalue.Unmarshal(queryValues["expirationDate"], &expirationDate)
 	err = attributevalue.Unmarshal(queryValues["list"], &list)
 	if err != nil {
 		log.Println("Error unmarshalling data from query ")
 	}
 
-	return UUID, date, list, err
+	return ULID, expirationDate, list, err
 
 }
 
 // Put creates/update a new entry in the Dynamodb
-func Put(clientConfig *dynamodb.Client, msName string, UUID string, date string) error {
+func Put(clientConfig *dynamodb.Client, msName string, ULID string, expirationDate string) {
 
 	var itemInput = dynamodb.PutItemInput{
 		TableName: aws.String(common.TableName),
 
 		Item: map[string]types.AttributeValue{
-			"ms-name": &types.AttributeValueMemberS{Value: msName},
-			"UUID":    &types.AttributeValueMemberS{Value: UUID},
-			"date":    &types.AttributeValueMemberS{Value: date},
+			"ms-name":        &types.AttributeValueMemberS{Value: msName},
+			"ULID":           &types.AttributeValueMemberS{Value: ULID},
+			"expirationDate": &types.AttributeValueMemberS{Value: expirationDate},
 		},
 	}
 
@@ -67,38 +67,33 @@ func Put(clientConfig *dynamodb.Client, msName string, UUID string, date string)
 	if err != nil {
 		log.Fatal("Error inserting value ", err)
 	}
-	return err
 }
 
-// DeleteExpiredUUIDs
-// queries all UUIDs and creation dates for a given ms and deletes items that were created between the
-// ranges 30 & 180 days before current date
-func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName string) error {
+// DeleteExpiredULIDs
+// queries all ULIDs and creation expirationDates for a given ms and deletes items passed expiration date
+func DeleteExpiredULIDs(clientConfig *dynamodb.Client, tableName string, msName string) error {
 
 	loc, _ := time.LoadLocation("UTC")
-	sixMonthsAgo := time.Now().In(loc).Add(-4320 * time.Hour).Format("2006-01-02") // 30days * 12months = 180 * 24 = 4320
-	monthAgo := time.Now().In(loc).Add(-720 * time.Hour).Format("2006-01-02")
+	currentTime := time.Now().In(loc).Format("2006-01-02") // 30 * 24 = 720
 
-	// in english: filter dates existing in dynamodb between 6 months ago and a month ago from current time
-	filter := "#date BETWEEN :ldate AND :edate"
+	filter := "#expirationDate < :currentTime"
 	out, err := clientConfig.Query(context.TODO(),
 		&dynamodb.QueryInput{
 			TableName:              aws.String(common.TableName),
 			KeyConditionExpression: aws.String("#msName = :msName"),
 			ExpressionAttributeNames: map[string]string{
-				"#msName": "ms-name",
-				"#date":   "date", // dynamodb does not like dashes
+				"#msName":         "ms-name",        // dynamodb does not like dashes, #msName is a alias for ms-name
+				"#expirationDate": "expirationDate", // defining the other column we want to query
 			},
 
 			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":msName": &types.AttributeValueMemberS{Value: msName},
-				":ldate":  &types.AttributeValueMemberS{Value: sixMonthsAgo},
-				":edate":  &types.AttributeValueMemberS{Value: monthAgo},
+				":msName":      &types.AttributeValueMemberS{Value: msName}, // all expired ULIDs from the msName
+				":currentTime": &types.AttributeValueMemberS{Value: currentTime},
 			},
 			FilterExpression: &filter,
 		})
 	if err != nil {
-		print("Error querying expired dates")
+		print("Error querying expired expirationDates")
 		log.Fatal(err)
 	}
 
@@ -107,7 +102,7 @@ func DeleteExpiredUUIDs(clientConfig *dynamodb.Client, tableName string, msName 
 			TableName: aws.String(tableName),
 			Key: map[string]types.AttributeValue{
 				"ms-name": item["ms-name"],
-				"UUID":    item["UUID"],
+				"ULID":    item["ULID"],
 			},
 		})
 		if err != nil {
