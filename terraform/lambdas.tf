@@ -68,7 +68,7 @@ resource "aws_lambda_function_event_invoke_config" "check_ULID" {
 ####################
 
 resource "aws_cloudwatch_log_metric_filter" "ULID_Collision" {
-
+ depends_on = [module.check_ULID]
   log_group_name = "/aws/lambda/check_ULID"
   name           = "IMS ULID Collisions"
   pattern        = "[..., statusCode=409]"
@@ -80,7 +80,7 @@ resource "aws_cloudwatch_log_metric_filter" "ULID_Collision" {
 }
 
 
-resource "aws_cloudwatch_metric_alarm" "UUID_Collision" {
+resource "aws_cloudwatch_metric_alarm" "ULID_Collision" {
   alarm_name          = "IMSULIDCollisions"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   period = "60"

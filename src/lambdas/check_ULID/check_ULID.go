@@ -34,6 +34,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	ULID, _, _, err := dynamoDAO.Get(dynamodbClient, msName)
 
 	// Microservice provides UUID to insert into dynamodb
+	// TODO do we need Put?
 	if request.HTTPMethod == "PUT" {
 		passedULID := request.QueryStringParameters["ULID"]
 		ULID, _, _, err = dynamoDAO.Get(dynamodbClient, msName)
@@ -66,7 +67,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 
 	type Microservice struct {
-		ExpirationTime string `json:"expirationTime"`
+		ExpirationDate string `json:"expirationDate"`
 	}
 
 	// Microservice provides body that defines expiration date
@@ -84,11 +85,20 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 				fmt.Println(ms)
 				log.Fatal("Failed to Unmarshal expiredTime json from api request body", err)
 			}
-
-			if ms.ExpirationTime == "" {
+			if ms.ExpirationDate == "" {
 				log.Fatal("Inputted UserBody does not contain a accepted value in its contents")
 			}
-			dynamoDAO.Put(dynamodbClient, msName, ULID, ms.ExpirationTime)
+
+			// MS provides ULID on POST else we make one for them // TODO is this wanted functionality ?
+			if request.QueryStringParameters["ULID"] == "" {
+				entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+				ms := ulid.Timestamp(time.Now())
+				newULID, _ := ulid.New(ms, entropy)
+				ULID = newULID.String()
+			} else {
+				ULID = request.QueryStringParameters["ULID"]
+			}
+			dynamoDAO.Put(dynamodbClient, msName, ULID, ms.ExpirationDate)
 			statusCode = 201
 		} else {
 			loc, _ := time.LoadLocation("UTC")
